@@ -42,6 +42,111 @@ const int outtake2 = 13;
 PS2X ps2x; // Create ps2x instance
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 
+// Control mode
+int bco = 19;
+string driveMode = "arcadedrive";
+
+void setLeftMotorVelocity(int velocity) {
+  if(velocity >= 0) {
+    pwm.setPWM(left1, 0, velocity);
+    pwm.setPWM(left2, 0, 0);
+  } else {
+    pwm.setPWM(left1, 0, 0);
+    pwm.setPWM(left2, 0, -velocity);
+  }
+}
+
+void setRightMotorVelocity(int velocity) {
+  if(velocity >= 0) {
+    pwm.setPWM(right2, 0, velocity);
+    pwm.setPWM(right1, 0, 0);
+  } else {
+    pwm.setPWM(right2, 0, 0);
+    pwm.setPWM(right1, 0, -velocity);
+  }
+}
+
+void tankDrive() {
+  //Left wheel control
+  int leftJoystickValue = ps2x.Analog(PSS_LY);
+  int leftVelocity = bco*(128 - leftJoystickValue);
+  setLeftMotorVelocity(leftVelocity);
+  // Right wheel control
+  int rightJoystickValue = ps2x.Analog(PSS_RY);
+  int rightVelocity = bco*abs(128 - rightJoystickValue);
+  setRightMotorVelocity(rightVelocity);
+}
+
+
+void arcadeDrive() {
+  int hosizontalJoystickValue = ps2x.Analog(PSS_RX);
+  int verticalJoystickVal = ps2x.Analog(PSS_LY);
+  int drive = 128-verticalJoystickVal;
+  int rotate = hosizontalJoystickValue-128;
+  int maximum = max(abs(drive), abs(rotate));
+  int total = drive + rotate;
+  int diff = drive - rotate;
+  if(drive > 0) {
+    if(rotate < 0) {
+      //Left motor
+      setLeftMotorVelocity(total);
+      //Right motor
+      setRightMotorVelocity(maximum);
+    } else {
+      //Left motor
+      setLeftMotorVelocity(maximum);
+      //Right motor
+      setRightMotorVelocity(diff);
+    }
+  } else {
+    if(rotate < 0) {
+      //Left motor
+      setLeftMotorVelocity(-maximum);
+      //Right motor
+      setRightMotorVelocity(diff);
+    } else {
+      //Left motor
+      setLeftMotorVelocity(total);
+      //Right motor
+      setRightMotorVelocity(-maximum);
+    }
+  }
+
+}
+
+
+void handleIntake() {
+  if (ps2x.Button(PSB_L1)) {
+    if (ps2x.Button(PSB_L2)) {
+      pwm.setPWM(intake1, 0, 4095);
+      pwm.setPWM(intake2, 0, 0);
+    } else {
+      pwm.setPWM(intake1, 0, 0);
+      pwm.setPWM(intake2, 0, 4095);
+    }
+  } else {                                                                                        
+    pwm.setPWM(intake1, 0, 0);
+    pwm.setPWM(intake2, 0, 0);
+  }
+}
+
+void handleDriveMode() {
+  if(ps2x.NewButtonState(PSB_SQUARE)) {
+    driveMode = driveMode == "tankdrive" ? "arcadedrive" : "tankdrive";
+  }
+}
+
+void handleBoostMode() {
+  if (ps2x.NewButtonState(PSB_TRIANGLE)) {
+    if (ps2x.Button(PSB_TRIANGLE)) {
+      // Boost mode
+      bco = 29;
+    } else {
+      bco = 19;
+    }
+  }
+}
+
 void setup() {
 
   // Connect to PS2 
@@ -68,63 +173,20 @@ void setup() {
   Wire.setClock(400000); // Set to max i2c frequency @ 400000
 }
 
-// Control mode
-int bco = 19;
-int leftJoystickValue = 0;
-int rightJoystickValue = 0;
-int leftVelocity = 0;
-int rightVelocity = 0;
+
+
 void loop() {
   // Read the gamepad state
   ps2x.read_gamepad(false, false);
-  // Coefficient for driving
-  if (ps2x.NewButtonState(PSB_R2)) {
-    if (ps2x.Button(PSB_R2)) {
-      // Boost mode
-      bco = 29;
-    } else {
-      bco = 19;
-    }
-  }
-  // Normal tank drive mode
-  // Left wheel control
-  leftJoystickValue = ps2x.Analog(PSS_LY);
-  leftVelocity = bco*abs(128 - leftJoystickValue);
-  if (leftJoystickValue <= 127) {
-    // Forward
-    pwm.setPWM(left1, 0, leftVelocity);
-    pwm.setPWM(left2, 0, 0);
+  handleBoostMode();
+  //Choose between 2 driving mode
+  handleDriveMode();
+  if(mode == "tankdrive") {
+    tankDrive();
   } else {
-    // Backward
-    pwm.setPWM(left1, 0, 0);
-    pwm.setPWM(left2, 0, leftVelocity);
+    arcadeDrvie();
   }
-
-  // Right wheel control
-  rightJoystickValue = ps2x.Analog(PSS_RY);
-  rightVelocity = bco*abs(128 - rightJoystickValue);
-  if (leftJoystickValue <= 127) {
-    // Forward
-    pwm.setPWM(right2, 0, rightVelocity);
-    pwm.setPWM(right1, 0, 0);
-  } else {
-    // Backward
-    pwm.setPWM(right2, 0, 0);
-    pwm.setPWM(right1, 0, rightVelocity);
-  }
-  // Intake
-  if (ps2x.Button(PSB_L1)) {
-    if (ps2x.Button(PSB_L2)) {
-      pwm.setPWM(intake1, 0, 4095);
-      pwm.setPWM(intake2, 0, 0);
-    } else {
-      pwm.setPWM(intake1, 0, 0);
-      pwm.setPWM(intake2, 0, 4095);
-    }
-  } else {                                                                                        
-    pwm.setPWM(intake1, 0, 0);
-    pwm.setPWM(intake2, 0, 0);
-  }
+  handleIntake();
 
   //Outtake
   // Put some new code here
