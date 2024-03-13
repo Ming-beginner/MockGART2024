@@ -1,3 +1,5 @@
+#include <PS2X_lib.h>
+
 //Main code for team RED's bot for Mock GART 2024
 
 // For controlling PCA9685
@@ -43,10 +45,11 @@ PS2X ps2x; // Create ps2x instance
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 
 // Control mode
-int bco = 19;
-string driveMode = "arcadedrive";
+float bco = 4095/128;
+bool isArcadeMode = 0;
+bool prevState = 0;
 
-void setLeftMotorVelocity(int velocity) {
+void setLeftMotorVelocity(float velocity) {
   if(velocity >= 0) {
     pwm.setPWM(left1, 0, velocity);
     pwm.setPWM(left2, 0, 0);
@@ -56,7 +59,7 @@ void setLeftMotorVelocity(int velocity) {
   }
 }
 
-void setRightMotorVelocity(int velocity) {
+void setRightMotorVelocity(float velocity) {
   if(velocity >= 0) {
     pwm.setPWM(right2, 0, velocity);
     pwm.setPWM(right1, 0, 0);
@@ -73,19 +76,32 @@ void tankDrive() {
   setLeftMotorVelocity(leftVelocity);
   // Right wheel control
   int rightJoystickValue = ps2x.Analog(PSS_RY);
-  int rightVelocity = bco*abs(128 - rightJoystickValue);
+  int rightVelocity = bco*(128 - rightJoystickValue);
   setRightMotorVelocity(rightVelocity);
 }
-
+int i=0;
 
 void arcadeDrive() {
-  int hosizontalJoystickValue = ps2x.Analog(PSS_RX);
-  int verticalJoystickVal = ps2x.Analog(PSS_LY);
-  int drive = 128-verticalJoystickVal;
-  int rotate = hosizontalJoystickValue-128;
+  int horizontalJoystickValue = ps2x.Analog(PSS_RX);
+  int verticalJoystickValue = ps2x.Analog(PSS_LY);
+  int drive = 128-verticalJoystickValue;
+  int rotate = horizontalJoystickValue-127;
+  i++;
+  if (i%1000 == 0)
+  {Serial.print("RX: ");
+  Serial.println(horizontalJoystickValue);
+  Serial.print("LY: ");
+  Serial.println(verticalJoystickValue);
+  Serial.print("Drive: ");
+  Serial.println(drive);
+  Serial.print("Rotate: ");
+  Serial.println(rotate);}
   int maximum = max(abs(drive), abs(rotate));
   int total = drive + rotate;
   int diff = drive - rotate;
+  maximum *= bco;
+  total *= bco;
+  diff *= bco;
   if(drive > 0) {
     if(rotate < 0) {
       //Left motor
@@ -111,30 +127,22 @@ void arcadeDrive() {
       setRightMotorVelocity(-maximum);
     }
   }
-
 }
 
 
 void handleIntake() {
   if (ps2x.Button(PSB_L1)) {
-    if (ps2x.Button(PSB_L2)) {
-      pwm.setPWM(intake1, 0, 4095);
-      pwm.setPWM(intake2, 0, 0);
-    } else {
-      pwm.setPWM(intake1, 0, 0);
-      pwm.setPWM(intake2, 0, 4095);
-    }
+    pwm.setPWM(intake1, 0, 4095);
+    pwm.setPWM(intake2, 0, 0);
+  } else if(ps2x.Button(PSB_L2)) {
+    pwm.setPWM(intake1, 0, 0);
+    pwm.setPWM(intake2, 0, 4095);
   } else {                                                                                        
     pwm.setPWM(intake1, 0, 0);
     pwm.setPWM(intake2, 0, 0);
   }
 }
 
-void handleDriveMode() {
-  if(ps2x.NewButtonState(PSB_SQUARE)) {
-    driveMode = driveMode == "tankdrive" ? "arcadedrive" : "tankdrive";
-  }
-}
 
 void handleBoostMode() {
   if (ps2x.NewButtonState(PSB_TRIANGLE)) {
@@ -150,21 +158,32 @@ void handleBoostMode() {
 void setup() {
 
   // Connect to PS2 
-  Serial.print("Connecting to gamepad");
-
+  Serial.begin(9600);
+  Serial.println("Connecting to gamepad");
   int error = -1;
-  bool connecting = true;
-  while(connecting) { //Connecting to gamepad
-    delay(1000); // wait a second before
+  for (int i = 0; i < 10; i++) // thử kết nối với tay cầm ps2 trong 10 lần
+  {
+    delay(1000); // đợi 1 giây
+    // cài đặt chân và các chế độ: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
     error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
     Serial.print(".");
-    if (error == 0) {
-      connecting = false;
-      Serial.println("Connected to gamepad successfully");
-    }
-    else {
-      Serial.println("Failed to connect to gamepad...");
-    }
+    if (error == 0) break;
+  }
+
+  switch (error) // kiểm tra lỗi nếu sau 10 lần không kết nối được
+  {
+  case 0:
+    Serial.println(" Ket noi tay cam PS2 thanh cong");
+    break;
+  case 1:
+    Serial.println(" LOI: Khong tim thay tay cam, hay kiem tra day ket noi vơi tay cam ");
+    break;
+  case 2:
+    Serial.println(" LOI: khong gui duoc lenh");
+    break;
+  case 3:
+    Serial.println(" LOI: Khong vao duoc Pressures mode ");
+    break;
   }
   // Init motor controller
   pwm.begin(); // Initialize PCA9685 
@@ -178,18 +197,20 @@ void setup() {
 void loop() {
   // Read the gamepad state
   ps2x.read_gamepad(false, false);
-  handleBoostMode();
+  // Serial.print("Prev: ");
+  // Serial.println(prevState);
+  bool curr = ps2x.ButtonPressed(PSB_SQUARE);
+  if(curr) {
+    isArcadeMode = !isArcadeMode;
+  }
   //Choose between 2 driving mode
-  handleDriveMode();
-  if(mode == "tankdrive") {
-    tankDrive();
+  if(isArcadeMode) {
+    arcadeDrive();
   } else {
-    arcadeDrvie();
+    tankDrive();
   }
   handleIntake();
-
-  //Outtake
-  // Put some new code here
   //Delay a little bit
   delay(10);
+  prevState = curr;
 }
