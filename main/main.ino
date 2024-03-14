@@ -10,14 +10,14 @@
 
 
 // PWM mapping
-const int left1 = 8;
-const int left2 = 9;
+const int left1 = 9;
+const int left2 = 8;
 const int right1 = 14;
 const int right2 = 15;
 const int intake1 = 10;
 const int intake2 = 11;
-const int outtake1 = 12;
-const int outtake2 = 13;
+const int outtake = 7;
+const int hacth = 6;
 
 /******************************************************************
  * Pins config for the library :
@@ -45,7 +45,7 @@ PS2X ps2x; // Create ps2x instance
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 
 // Control mode
-float bco = 4095/128;
+int bco = 4095/128;
 bool isArcadeMode = 0;
 bool prevState = 0;
 
@@ -77,7 +77,7 @@ void tankDrive() {
   // Right wheel control
   int rightJoystickValue = ps2x.Analog(PSS_RY);
   int rightVelocity = bco*(128 - rightJoystickValue);
-  setRightMotorVelocity(rightVelocity);
+  setRightMotorVelocity(  );
 }
 int i=0;
 
@@ -86,6 +86,7 @@ void arcadeDrive() {
   int verticalJoystickValue = ps2x.Analog(PSS_LY);
   int drive = 128-verticalJoystickValue;
   int rotate = horizontalJoystickValue-127;
+  #if DEBUG
   i++;
   if (i%1000 == 0)
   {Serial.print("RX: ");
@@ -96,6 +97,7 @@ void arcadeDrive() {
   Serial.println(drive);
   Serial.print("Rotate: ");
   Serial.println(rotate);}
+  #endif
   int maximum = max(abs(drive), abs(rotate));
   int total = drive + rotate;
   int diff = drive - rotate;
@@ -195,6 +197,8 @@ void setup() {
 
 
 void loop() {
+
+
   // Read the gamepad state
   ps2x.read_gamepad(false, false);
   // Serial.print("Prev: ");
