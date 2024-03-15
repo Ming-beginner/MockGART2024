@@ -16,8 +16,9 @@ const int right1 = 14;
 const int right2 = 15;
 const int intake1 = 10;
 const int intake2 = 11;
-const int outtake = 7;
-const int hacth = 6;
+const int outtake1 = 12;
+const int outtake2 = 13;
+const int hatch = 2;
 
 /******************************************************************
  * Pins config for the library :
@@ -49,7 +50,7 @@ int bco = 4095/128;
 bool isArcadeMode = 0;
 bool prevState = 0;
 
-void setLeftMotorVelocity(float velocity) {
+void setLeftMotorVelocity(int velocity) {
   if(velocity >= 0) {
     pwm.setPWM(left1, 0, velocity);
     pwm.setPWM(left2, 0, 0);
@@ -59,7 +60,7 @@ void setLeftMotorVelocity(float velocity) {
   }
 }
 
-void setRightMotorVelocity(float velocity) {
+void setRightMotorVelocity(int velocity) {
   if(velocity >= 0) {
     pwm.setPWM(right2, 0, velocity);
     pwm.setPWM(right1, 0, 0);
@@ -77,7 +78,7 @@ void tankDrive() {
   // Right wheel control
   int rightJoystickValue = ps2x.Analog(PSS_RY);
   int rightVelocity = bco*(128 - rightJoystickValue);
-  setRightMotorVelocity(  );
+  setRightMotorVelocity(rightVelocity);
 }
 int i=0;
 
@@ -145,14 +146,31 @@ void handleIntake() {
   }
 }
 
+void handleOuttake() {
+  if (ps2x.Button(PSB_R1)) {
+    pwm.setPWM(outtake1, 0, 4095);
+    pwm.setPWM(outtake2, 0, 0);
+  } else if(ps2x.Button(PSB_R2)) {
+    pwm.setPWM(outtake1, 0, 0);
+    pwm.setPWM(outtake2, 0, 4095);
+  } else {                                                                                        
+    pwm.setPWM(outtake1, 0, 0);
+    pwm.setPWM(outtake2, 0, 0);
+  }
+}
 
-void handleBoostMode() {
-  if (ps2x.NewButtonState(PSB_TRIANGLE)) {
-    if (ps2x.Button(PSB_TRIANGLE)) {
-      // Boost mode
-      bco = 29;
+
+
+bool hatchState = 0;
+
+void handleHatch() {
+  if (ps2x.ButtonPressed(PSB_TRIANGLE)) {
+    if(hatchState == 0) {
+      pwm.setPWM(hatch, 0, 2150);
+      hatchState = 1;
     } else {
-      bco = 19;
+      pwm.setPWM(hatch, 0, 956);
+      hatchState = 0;
     }
   }
 }
@@ -194,8 +212,6 @@ void setup() {
   Wire.setClock(400000); // Set to max i2c frequency @ 400000
 }
 
-
-
 void loop() {
 
 
@@ -214,6 +230,8 @@ void loop() {
     tankDrive();
   }
   handleIntake();
+  handleOuttake();
+  handleHatch();
   //Delay a little bit
   delay(10);
   prevState = curr;
