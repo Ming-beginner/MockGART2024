@@ -225,7 +225,7 @@ void setup(void)
   uint16_t  slider_9 = ESPUI.addControl(ControlType::Slider, "Servo 6", "0", ControlColor::Wetasphalt, tab2, &Servo_slider);
    ESPUI.addControl(Min, "", "400", None, slider_9);
   ESPUI.addControl(Max, "", "2200", None, slider_9);  
-  uint16_t  slider_10 = ESPUI.addControl(ControlType::Slider, "Servo 6", "0", ControlColor::Emerald, tab2, &Servo_slider);
+  uint16_t  slider_10 = ESPUI.addControl(ControlType::Slider, "Servo 7", "0", ControlColor::Emerald, tab2, &Servo_slider);
    ESPUI.addControl(Min, "", "400", None, slider_10);
   ESPUI.addControl(Max, "", "2200", None, slider_10);
   

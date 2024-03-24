@@ -20,6 +20,10 @@ const int outtake1 = 12;
 const int outtake2 = 13;
 const int hatch = 2;
 
+
+const int OPEN_HATCH = 350; //Adjust these value to suit the servo
+const int HOLD_HATCH = 100;
+
 /******************************************************************
  * Pins config for the library :
  * - On the motorshield of VIA Makerbot BANHMI, there is a 6-pin
@@ -48,7 +52,6 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 // Control mode
 int bco = 4095/128;
 bool isArcadeMode = 0;
-bool prevState = 0;
 
 void setLeftMotorVelocity(int velocity) {
   if(velocity >= 0) {
@@ -166,10 +169,10 @@ bool hatchState = 0;
 void handleHatch() {
   if (ps2x.ButtonPressed(PSB_TRIANGLE)) {
     if(hatchState == 0) {
-      pwm.setPWM(hatch, 0, 2150);
+      pwm.setPWM(hatch, 0, OPEN_HATCH);
       hatchState = 1;
     } else {
-      pwm.setPWM(hatch, 0, 956);
+      pwm.setPWM(hatch, 0, HOLD_HATCH);
       hatchState = 0;
     }
   }
@@ -234,5 +237,4 @@ void loop() {
   handleHatch();
   //Delay a little bit
   delay(10);
-  prevState = curr;
 }
