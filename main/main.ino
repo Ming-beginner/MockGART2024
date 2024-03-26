@@ -14,15 +14,15 @@ const int left1 = 9;
 const int left2 = 8;
 const int right1 = 14;
 const int right2 = 15;
-const int intake1 = 10;
-const int intake2 = 11;
-const int outtake1 = 12;
-const int outtake2 = 13;
+const int intake1 = 12;
+const int intake2 = 13;
+const int outtake1 = 10;
+const int outtake2 = 11;
 const int hatch = 2;
 
 
-const int OPEN_HATCH = 350; //Adjust these value to suit the servo
-const int HOLD_HATCH = 100;
+const int HOLD_HATCH = 134; //Adjust these value to suit the servo
+const int HOLD_HATCH = 350;
 
 /******************************************************************
  * Pins config for the library :
@@ -50,7 +50,8 @@ PS2X ps2x; // Create ps2x instance
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 
 // Control mode
-int bco = 4095/128;
+int bco = 21;
+
 bool isArcadeMode = 0;
 
 void setLeftMotorVelocity(int velocity) {
@@ -167,20 +168,29 @@ void handleOuttake() {
 bool hatchState = 0;
 
 void handleHatch() {
-  if (ps2x.ButtonPressed(PSB_TRIANGLE)) {
-    if(hatchState == 0) {
-      pwm.setPWM(hatch, 0, OPEN_HATCH);
-      hatchState = 1;
-    } else {
+  if(ps2x.ButtonPressed(PSB_CIRCLE)) {
+    if(pwm.getPWM(hatch, 1) != HOLD_HATCH) {
       pwm.setPWM(hatch, 0, HOLD_HATCH);
-      hatchState = 0;
+    } else {
+      pwm.setPWM(hatch, 0, OPEN_HATCH);
+    }
+  }
+}
+
+void handleBoost() {
+  if (ps2x.NewButtonState(PSB_TRIANGLE)) {
+    if (ps2x.Button(PSB_TRIANGLE)) {
+      // Boost mode
+      bco = 30;
+    } else {
+      bco = 21;
     }
   }
 }
 
 void setup() {
-
   // Connect to PS2 
+  delay(1000);
   Serial.begin(9600);
   Serial.println("Connecting to gamepad");
   int error = -1;
@@ -215,9 +225,10 @@ void setup() {
   Wire.setClock(400000); // Set to max i2c frequency @ 400000
 }
 
+
 void loop() {
 
-
+  
   // Read the gamepad state
   ps2x.read_gamepad(false, false);
   // Serial.print("Prev: ");
@@ -235,6 +246,7 @@ void loop() {
   handleIntake();
   handleOuttake();
   handleHatch();
+  handleBoost();
   //Delay a little bit
   delay(10);
 }
