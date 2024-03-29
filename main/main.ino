@@ -22,7 +22,10 @@ const int hatch = 2;
 
 
 const int HOLD_HATCH = 134; //Adjust these value to suit the servo
-const int HOLD_HATCH = 350;
+const int CLOSE_HATCH = 320;
+const int OUTTAKE_SPEED = 4095;
+const int NORMAL_SPEED = 22;
+const int MAX_SPEED = 31;
 
 /******************************************************************
  * Pins config for the library :
@@ -50,7 +53,7 @@ PS2X ps2x; // Create ps2x instance
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 
 // Control mode
-int bco = 21;
+int bco = 22;
 
 bool isArcadeMode = 0;
 
@@ -141,7 +144,12 @@ void handleIntake() {
   if (ps2x.Button(PSB_L1)) {
     pwm.setPWM(intake1, 0, 4095);
     pwm.setPWM(intake2, 0, 0);
-  } else if(ps2x.Button(PSB_L2)) {
+    if(ps2x.Button(PSB_L2)) {
+      bco = MAX_SPEED;
+    } else {
+      bco = NORMAL_SPEED;
+    }
+  }else if(ps2x.Button(PSB_L2)) {
     pwm.setPWM(intake1, 0, 0);
     pwm.setPWM(intake2, 0, 4095);
   } else {                                                                                        
@@ -152,10 +160,10 @@ void handleIntake() {
 
 void handleOuttake() {
   if (ps2x.Button(PSB_R1)) {
-    pwm.setPWM(outtake1, 0, 4095);
+    pwm.setPWM(outtake1, 0, OUTTAKE_SPEED);
     pwm.setPWM(outtake2, 0, 0);
   } else if(ps2x.Button(PSB_R2)) {
-    pwm.setPWM(outtake1, 0, 0);
+    pwm.setPWM(outtake1, 0, OUTTAKE_SPEED);
     pwm.setPWM(outtake2, 0, 4095);
   } else {                                                                                        
     pwm.setPWM(outtake1, 0, 0);
@@ -172,21 +180,11 @@ void handleHatch() {
     if(pwm.getPWM(hatch, 1) != HOLD_HATCH) {
       pwm.setPWM(hatch, 0, HOLD_HATCH);
     } else {
-      pwm.setPWM(hatch, 0, OPEN_HATCH);
+      pwm.setPWM(hatch, 0, CLOSE_HATCH);
     }
   }
 }
 
-void handleBoost() {
-  if (ps2x.NewButtonState(PSB_TRIANGLE)) {
-    if (ps2x.Button(PSB_TRIANGLE)) {
-      // Boost mode
-      bco = 30;
-    } else {
-      bco = 21;
-    }
-  }
-}
 
 void setup() {
   // Connect to PS2 
@@ -194,14 +192,16 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Connecting to gamepad");
   int error = -1;
-  for (int i = 0; i < 10; i++) // thử kết nối với tay cầm ps2 trong 10 lần
-  {
-    delay(1000); // đợi 1 giây
-    // cài đặt chân và các chế độ: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
-    error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
-    Serial.print(".");
-    if (error == 0) break;
-  }
+  //while(error != 0) {
+    for (int i = 0; i < 10; i++) // thử kết nối với tay cầm ps2 trong 10 lần
+    {
+      delay(1000); // đợi 1 giây
+      // cài đặt chân và các chế độ: GamePad(clock, command, attention, data, Pressures?, Rumble?) check for error
+      error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+      Serial.print(".");
+      if (error == 0) break;
+    }
+  //}
 
   switch (error) // kiểm tra lỗi nếu sau 10 lần không kết nối được
   {
@@ -227,13 +227,14 @@ void setup() {
 
 
 void loop() {
-
-  
   // Read the gamepad state
   ps2x.read_gamepad(false, false);
   // Serial.print("Prev: ");
   // Serial.println(prevState);
   bool curr = ps2x.ButtonPressed(PSB_SQUARE);
+  handleIntake();
+  handleOuttake();
+  handleHatch();
   if(curr) {
     isArcadeMode = !isArcadeMode;
   }
@@ -243,10 +244,6 @@ void loop() {
   } else {
     tankDrive();
   }
-  handleIntake();
-  handleOuttake();
-  handleHatch();
-  handleBoost();
   //Delay a little bit
   delay(10);
 }
