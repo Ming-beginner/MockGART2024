@@ -1,23 +1,18 @@
-#include <PS2X_lib.h>
-
 //Main code for team RED's bot for Mock GART 2024
-
 // For controlling PCA9685
 #include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
 // For using PS2 controller
 #include <PS2X_lib.h>
 
-
 // PWM mapping
-const int left1 = 9;
-const int left2 = 8;
-const int right1 = 14;
-const int right2 = 15;
-const int intake1 = 12;
-const int intake2 = 13;
-const int outtake1 = 10;
-const int outtake2 = 11;
+const int left1 = 27; //27
+const int left2 = 14; //14
+const int right1 = 13; 
+const int right2 = 12;
+const int intake1 = 16; //16
+const int intake2 = 17; //17
+const int outtake1 = 18;
+const int outtake2 = 5;
 const int hatch = 2;
 
 
@@ -36,10 +31,10 @@ const int MAX_SPEED = 31;
  *    12     13    GND   3.3V   15   14
  ******************************************************************/
 
-#define PS2_DAT 12 // MISO
-#define PS2_CMD 13 // MOSI
-#define PS2_SEL 15 // SS
-#define PS2_CLK 14 // SLK
+#define PS2_DAT 26 // MISO
+#define PS2_CMD 25 // MOSI
+#define PS2_SEL 33 // SS
+#define PS2_CLK 32 // SLK
 
 /******************************************************************
  * Select mode for PS2 controller:
@@ -49,8 +44,19 @@ const int MAX_SPEED = 31;
 #define pressures false
 #define rumble false
 
+class pwm_t
+{
+  public:
+  static void setPWM(int port, int ignored, double val)
+  {
+    analogWrite(port, (int)((val*256)/4096));
+    Serial.print(port);
+    Serial.print(' ');
+    Serial.println(val);
+  }
+};
+pwm_t pwm;
 PS2X ps2x; // Create ps2x instance
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Create pwm instance
 
 // Control mode
 int bco = 22;
@@ -140,6 +146,7 @@ void arcadeDrive() {
 }
 
 
+
 void handleIntake() {
   if (ps2x.Button(PSB_L1)) {
     pwm.setPWM(intake1, 0, 4095);
@@ -163,8 +170,8 @@ void handleOuttake() {
     pwm.setPWM(outtake1, 0, OUTTAKE_SPEED);
     pwm.setPWM(outtake2, 0, 0);
   } else if(ps2x.Button(PSB_R2)) {
-    pwm.setPWM(outtake1, 0, OUTTAKE_SPEED);
-    pwm.setPWM(outtake2, 0, 4095);
+    pwm.setPWM(outtake1, 0, 0);
+    pwm.setPWM(outtake2, 0, OUTTAKE_SPEED);
   } else {                                                                                        
     pwm.setPWM(outtake1, 0, 0);
     pwm.setPWM(outtake2, 0, 0);
@@ -176,20 +183,25 @@ void handleOuttake() {
 bool hatchState = 0;
 
 void handleHatch() {
-  if(ps2x.ButtonPressed(PSB_CIRCLE)) {
-    if(pwm.getPWM(hatch, 1) != HOLD_HATCH) {
-      pwm.setPWM(hatch, 0, HOLD_HATCH);
-    } else {
-      pwm.setPWM(hatch, 0, CLOSE_HATCH);
-    }
-  }
+  // if(ps2x.ButtonPressed(PSB_CIRCLE)) {
+  //   if(pwm.getPWM(hatch, 1) != HOLD_HATCH) {
+  //     pwm.setPWM(hatch, 0, HOLD_HATCH);
+  //   } else {
+  //     pwm.setPWM(hatch, 0, CLOSE_HATCH);
+  //   }
+  // }
 }
 
 
 void setup() {
   // Connect to PS2 
-  delay(1000);
-  Serial.begin(9600);
+  int arr[] = {13, 12, 14, 27, 5, 18, 16, 17, 35};
+  for (int a : arr)
+  {
+    pinMode(a, OUTPUT);
+    digitalWrite(a, LOW);
+  }
+  Serial.begin(115200);
   Serial.println("Connecting to gamepad");
   int error = -1;
   //while(error != 0) {
@@ -219,9 +231,6 @@ void setup() {
     break;
   }
   // Init motor controller
-  pwm.begin(); // Initialize PCA9685 
-  pwm.setOscillatorFrequency(27000000); // Set frequency for PCA9685
-  pwm.setPWMFreq(50); // PWM frequency. Should be 50-60 Hz for controlling both DC motor and servo
   Wire.setClock(400000); // Set to max i2c frequency @ 400000
 }
 
